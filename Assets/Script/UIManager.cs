@@ -8,8 +8,6 @@ public class UIManager : MonoBehaviour
     public Button startButton;
 
     [Header("Restart Button")]
-    [SerializeField] private Image ButtonImg;
-    [SerializeField] private Sprite restartSprite, nextSprite;
     [SerializeField] private TextMeshProUGUI txt_Score;
     [SerializeField] private TextMeshProUGUI txt_Level;
 
@@ -17,46 +15,60 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject Gameoverpnl;
     [SerializeField] private TextMeshProUGUI gameoverScore;
     [SerializeField] private TextMeshProUGUI gameoverBestScore;
+    [SerializeField] private Image ButtonImg;
+    [SerializeField] private Sprite restartSprite, nextSprite;
+    [SerializeField] public TextMeshProUGUI gameoverMessage;
+
+    [SerializeField] public GameObject shopPanel;
 
     public static UIManager Instance;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+
     void Start()
     {
         if (Instance == null)
-        {
             Instance = this;
-        }
         else
-        {
-            Destroy(Instance);
-        }
+            Destroy(gameObject);
 
-        startButton.onClick.AddListener(() => StartGameUI(0));
+        startButton.onClick.AddListener(() => StartGameUI());
     }
 
-    public void StartGameUI(int levelvalue)
+    public void StartGameUI()
     {
         startButton.gameObject.SetActive(false);
-        AddScore(0, levelvalue);
         Gameoverpnl.SetActive(false);
+        shopPanel.SetActive(false);
     }
 
-    public void AddScore(int scorevalue, int level_value)
+    public void UpdateScore(int scorevalue)
     {
         txt_Score.text = scorevalue.ToString();
-        txt_Level.text = level_value.ToString();
+
+    }
+
+    public void UpdateLevel(int level_value)
+    {
+        if (txt_Level.text != level_value.ToString())
+        {
+            txt_Level.text = level_value.ToString();
+        }
     }
 
     public void GameOver(int bestscore, bool isNext)
     {
         Gameoverpnl.SetActive(true);
         gameoverScore.text = txt_Score.text;
-        //gameoverBestScore.text = bestscore.ToString();
-        if (isNext)
-            ButtonImg.sprite = restartSprite;
-        else
-            ButtonImg.sprite = nextSprite;
 
+        if (isNext)
+        {
+            UIManager.Instance.gameoverMessage.text = "WIN";
+            ButtonImg.sprite = nextSprite;
+        }
+        else
+        {
+            UIManager.Instance.gameoverMessage.text = "LOSE";
+            ButtonImg.sprite = restartSprite;
+        }
 
         if (bestscore >= int.Parse(gameoverBestScore.text))
         {

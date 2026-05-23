@@ -7,103 +7,98 @@ public class Planemove : MonoBehaviour
 {
     [Header("Collectible")]
     [SerializeField] private List<Sprite> CollectibleSprite = new List<Sprite>();
+
     [Header("GamePlay")]
-    [SerializeField] private Transform CanvasMain;
-    [SerializeField] private Transform RoundCircle;
     [SerializeField] private GameObject FireballObj;
+    [SerializeField] GameObject LeftPlane, RightPlane;
+    [SerializeField] private Transform CanvasMain;
+    [SerializeField] private Transform CenterTop;
+    [SerializeField] private Transform RoundCircle;
     [SerializeField] private GameObject ParticleSkull;
 
     [Header("Speed Plane")]
-    public int rotationSpeed;
-    public int bulletSpeed;
+    [SerializeField] private int rotationSpeed;
+    [SerializeField] private int bulletSpeed;
 
-    [Header("Score LevelNumber")]
-    int score, levelNumber;
+    [Header("Score && LevelNumber")]
+    [SerializeField] private int score;
+    [SerializeField] private int levelNumber;
 
-    [Header("Bool For GameStart ,Move check")]
+    [Header("Bool For GameStart ,Move ,Next round check")]
     bool isMoving = true;
     bool isGamestart = false;
-    bool isnext = false;
+    bool isFirstTap = true;
+
+    bool isNext;
 
     [Header("Start Position of Plane")]
     Vector2 startpositionPlane;
-    float _direction = 1;
+    float _direction;
+    BoxCollider2D boxCollider;
 
-    Image planeImg;
-
-    Transform CenterTop;
-    GameObject LeftPlane, RightPlane;
+    int completeNumber = 0;
 
     public void Start()
     {
+        boxCollider = GetComponent<BoxCollider2D>();
         UIManager.Instance.ShowBestScore(PlayerPrefs.GetInt("BestScore"));
         startpositionPlane = transform.position;
-        CollectibleInit();
         score = PlayerPrefs.GetInt("Score", 0);
         levelNumber = PlayerPrefs.GetInt("Level", 1);
-        UIManager.Instance.AddScore(score, levelNumber);
 
-        planeImg = transform.GetComponent<Image>();
-
-        // Speed will Increase Base on Level
-        rotationSpeed = 75 + (levelNumber * 3);
-
-        LeftPlane = transform.GetChild(0).gameObject;
-        RightPlane = transform.GetChild(1).gameObject;
+        UIManager.Instance.UpdateScore(score);
+        UpdateSpeedByLevel();
+        CollectibleInit();
     }
 
-    #region Instantiate circle with Collible
-    int randomvalue;
+    #region
     void CollectibleInit()
     {
-        Target = RoundCircle;
         RoundCircle.gameObject.SetActive(true);
-        randomvalue = Random.Range(0, 10);
-
-        CenterTop = RoundCircle.GetChild(RoundCircle.childCount - 1);
         StartCoroutine(ActivateObjectsWithDelay());
     }
     #endregion
 
     #region Coin Animation when game would start
-    Transform Target;
     IEnumerator ActivateObjectsWithDelay()
     {
         yield return new WaitForSeconds(1.0f);
-        Transform t = RoundCircle;
-        for (int i = 0; i < t.childCount - 1; i++)
+        int randomvalue;
+        randomvalue = Random.Range(0, 10);
+        for (int i = 0; i < RoundCircle.childCount - 1; i++)
         {
-            t.GetChild(i).GetComponent<Image>().sprite = CollectibleSprite[randomvalue];
-            t.GetChild(i).gameObject.SetActive(true);
+            RoundCircle.GetChild(i).GetComponent<Image>().sprite = CollectibleSprite[randomvalue];
+            RoundCircle.GetChild(i).gameObject.SetActive(true);
             yield return new WaitForSeconds(0.1f);
         }
-        t.GetChild(t.childCount - 1).gameObject.SetActive(true);
+        CenterTop.gameObject.SetActive(true);
         UIManager.Instance.startButton.gameObject.SetActive(true);
+        UIManager.Instance.shopPanel.SetActive(true);
+        UpdateSpeedByLevel();
     }
     #endregion
 
-    public void Game_Start()
+    public void GameStart()
     {
-        isGamestart = true;
-        UIManager.Instance.StartGameUI(PlayerPrefs.GetInt("Level"));
+        UIManager.Instance.StartGameUI();
         InvokeRepeating("Fireball", 0.5f, 1);
+        isGamestart = true;
+        boxCollider.enabled = true; // Disable collider to prevent further triggers
     }
 
-    public void Game_ReStart()
+    public void GameRestart()
     {
         isMoving = true;
-        if (isnext)
-        {
-            UIManager.Instance.AddScore(00, levelNumber);
-        }
         transform.position = startpositionPlane;
         transform.rotation = Quaternion.Euler(0, 0, 0);
 
         SelectPlane(LeftPlane);
 
-        UIManager.Instance.StartGameUI(levelNumber);
+        UIManager.Instance.StartGameUI();
+        UIManager.Instance.UpdateScore(score);
         CollectibleInit();
     }
+
     void Update()
     {
         if (!isGamestart)
@@ -111,18 +106,24 @@ public class Planemove : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
+            if (isFirstTap)
+            {
+                isFirstTap = false;
+                isMoving = false;
+                return;
+            }
             isMoving = !isMoving;
         }
 
         if (isMoving)
-            MovePlane(10, Vector3.back, LeftPlane);
+            MovePlane(Vector3.back, LeftPlane);
         else
-            MovePlane(-10, Vector3.forward, RightPlane);
+            MovePlane(Vector3.forward, RightPlane);
     }
 
-    void MovePlane(int multiply, Vector3 direction, GameObject planeselect)
+    void MovePlane(Vector3 direction, GameObject planeselect)
     {
-        CenterTop.eulerAngles += Vector3.forward * 10 * Time.deltaTime;
+        CenterTop.eulerAngles += Vector3.forward * rotationSpeed * Time.deltaTime;
         transform.RotateAround(RoundCircle.position, direction, rotationSpeed * Time.deltaTime);
         SelectPlane(planeselect);
     }
@@ -136,64 +137,83 @@ public class Planemove : MonoBehaviour
             Destroy(gm, 2.0f);
 
             score++;
-            UIManager.Instance.AddScore(score, levelNumber);
+            completeNumber++;
+            UIManager.Instance.UpdateScore(score);
             col.gameObject.SetActive(false);
         }
 
         if (col.CompareTag("ball"))
         {
+            isGamestart = false;
             Destroy(col.gameObject);
-            GameoverResetdata(true);
+            Invoke("GameoverResetdata", 1);
+            CancelInvoke("Fireball");
         }
-        Debug.Log("Score : " + score);
-        if (score == 28)
+        if (completeNumber == 28)
         {
+            boxCollider.enabled = false; // Disable collider to prevent further triggers
+            isGamestart = false;
             PlayerPrefs.SetInt("Level", levelNumber + 1);
-            GameoverResetdata(false);
+            Invoke("GameoverResetdata", 1);
+            CancelInvoke("Fireball");
         }
     }
 
-    void GameoverResetdata(bool isNext = false)
+    void GameoverResetdata()
     {
-        UIManager.Instance.GameOver(score, isNext);
-        Debug.Log("Complete");
-        isGamestart = false;
+        if (completeNumber >= 28)
+            isNext = true;
+        else
+            isNext = false;
 
-        CancelInvoke("Fireball");
+        isFirstTap = true;
+        UIManager.Instance.GameOver(score, isNext);
         if (isNext)
         {
-            score = 0;
-            isnext = true;
+            levelNumber = PlayerPrefs.GetInt("Level");
+            UpdateSpeedByLevel();
+            UIManager.Instance.UpdateLevel(levelNumber);
         }
         else
         {
-            isnext = false;
-            levelNumber = PlayerPrefs.GetInt("Level");
-            rotationSpeed = 75 + (levelNumber * 3);
-            UIManager.Instance.AddScore(score, levelNumber);
+            score = 0;
+            for (int i = 0; i < RoundCircle.childCount - 1; i++)
+            {
+                RoundCircle.GetChild(i).gameObject.SetActive(false);
+            }
         }
+        completeNumber = 0;
     }
 
     void Fireball()
     {
-        GameObject gm = Instantiate(FireballObj, Target.GetChild(Target.childCount - 1));
+        GameObject gm = Instantiate(FireballObj, CenterTop);
         gm.transform.localPosition = Vector3.zero;
-        Vector3 pos1 = transform.localPosition;    // Player position
-        Vector3 pos2 = gm.transform.localPosition; // FireBall position
 
-        if (isMoving)
-            _direction = -15;
-        else
-            _direction = 15;
+        RectTransform fireballRect = gm.GetComponent<RectTransform>();
+        Vector2 direction = isMoving ? Vector2.left : Vector2.right;  // FIXED direction based on movement
 
-        var direction = (new Vector3(pos1.x, pos1.y, 0) - new Vector3(pos2.x * _direction, pos2.y * _direction, 0)).normalized;
-        gm.transform.GetComponent<Rigidbody2D>().AddForce(direction * bulletSpeed);
-        Destroy(gm, 2);
+        StartCoroutine(MoveBullet(fireballRect, direction));
+        Destroy(gm, 2f);
+    }
+    IEnumerator MoveBullet(RectTransform rect, Vector2 dir)
+    {
+        while (rect != null)
+        {
+            rect.anchoredPosition += dir * bulletSpeed * Time.deltaTime;
+            yield return null;
+        }
     }
     public void SelectPlane(GameObject plane)
     {
         LeftPlane.SetActive(false);
         RightPlane.SetActive(false);
         plane.SetActive(true);
+    }
+
+    void UpdateSpeedByLevel()
+    {
+        rotationSpeed = 75 + (levelNumber * 3);     // plane speed
+        bulletSpeed = 1000 + (levelNumber * 20);    // fireball speed (slightly faster scaling)
     }
 }
