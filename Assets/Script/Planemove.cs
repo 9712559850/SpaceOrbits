@@ -47,6 +47,7 @@ public class Planemove : MonoBehaviour
         levelNumber = PlayerPrefs.GetInt("Level", 1);
 
         UIManager.Instance.UpdateScore(score);
+        UIManager.Instance.UpdateLevel(levelNumber);
         UpdateSpeedByLevel();
         CollectibleInit();
     }
@@ -80,14 +81,16 @@ public class Planemove : MonoBehaviour
 
     public void GameStart()
     {
+        ClearAllFireballs();
         UIManager.Instance.StartGameUI();
         InvokeRepeating("Fireball", 0.5f, 1);
         isGamestart = true;
-        boxCollider.enabled = true; // Disable collider to prevent further triggers
+        boxCollider.enabled = true; // Enable collider for gameplay
     }
 
     public void GameRestart()
     {
+        ClearAllFireballs();
         isMoving = true;
         transform.position = startpositionPlane;
         transform.rotation = Quaternion.Euler(0, 0, 0);
@@ -144,6 +147,7 @@ public class Planemove : MonoBehaviour
 
         if (col.CompareTag("ball"))
         {
+            boxCollider.enabled = false; // Disable collider to prevent further triggers
             isGamestart = false;
             Destroy(col.gameObject);
             Invoke("GameoverResetdata", 1);
@@ -190,10 +194,16 @@ public class Planemove : MonoBehaviour
         GameObject gm = Instantiate(FireballObj, CenterTop);
         gm.transform.localPosition = Vector3.zero;
 
-        RectTransform fireballRect = gm.GetComponent<RectTransform>();
-        Vector2 direction = isMoving ? Vector2.left : Vector2.right;  // FIXED direction based on movement
+        // Unparent from rotating CenterTop, parenting to CanvasMain to prevent spiraling
+        gm.transform.SetParent(CanvasMain, true);
 
-        StartCoroutine(MoveBullet(fireballRect, direction));
+        RectTransform fireballRect = gm.GetComponent<RectTransform>();
+        Vector2 localDir = isMoving ? Vector2.left : Vector2.right;  // Direction based on movement
+
+        // Calculate constant direction in CanvasMain space
+        Vector2 canvasDir = gm.transform.localRotation * localDir;
+
+        StartCoroutine(MoveBullet(fireballRect, canvasDir));
         Destroy(gm, 2f);
     }
     IEnumerator MoveBullet(RectTransform rect, Vector2 dir)
@@ -213,7 +223,19 @@ public class Planemove : MonoBehaviour
 
     void UpdateSpeedByLevel()
     {
-        rotationSpeed = 75 + (levelNumber * 3);     // plane speed
-        bulletSpeed = 1000 + (levelNumber * 20);    // fireball speed (slightly faster scaling)
+        rotationSpeed = Mathf.Min(75 + (levelNumber * 3), 180);     // plane speed (clamped to 180 max for playability)
+        bulletSpeed = Mathf.Min(1000 + (levelNumber * 20), 1800);   // fireball speed (clamped to 1800 max to prevent collision tunneling)
+    }
+
+    void ClearAllFireballs()
+    {
+        GameObject[] fireballs = GameObject.FindGameObjectsWithTag("ball");
+        foreach (GameObject fb in fireballs)
+        {
+            if (fb != null)
+            {
+                Destroy(fb);
+            }
+        }
     }
 }
