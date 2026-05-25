@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,6 +12,9 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI txt_Score;
     [SerializeField] private TextMeshProUGUI txt_Level;
 
+    [Header("Home Panel")]
+    [SerializeField] private GameObject HomePanel;
+    [SerializeField] private GameObject PlayerPlane;
     [Header("Game Over")]
     [SerializeField] private GameObject Gameoverpnl;
     [SerializeField] private TextMeshProUGUI gameoverScore;
@@ -43,7 +47,6 @@ public class UIManager : MonoBehaviour
     public void UpdateScore(int scorevalue)
     {
         txt_Score.text = scorevalue.ToString();
-
     }
 
     public void UpdateLevel(int level_value)
@@ -61,11 +64,13 @@ public class UIManager : MonoBehaviour
 
         if (isNext)
         {
+            SoundManager.Instance.PlayGameOverSound(1);
             UIManager.Instance.gameoverMessage.text = "WIN";
             ButtonImg.sprite = nextSprite;
         }
         else
         {
+            SoundManager.Instance.PlayGameOverSound(0);
             UIManager.Instance.gameoverMessage.text = "LOSE";
             ButtonImg.sprite = restartSprite;
         }
@@ -79,5 +84,27 @@ public class UIManager : MonoBehaviour
     public void ShowBestScore(int score)
     {
         gameoverBestScore.text = score.ToString();
+    }
+
+    public void Home()
+    {
+        Gameoverpnl.SetActive(false);
+        shopPanel.SetActive(false);
+        HomePanel.SetActive(true);
+        UIManager.Instance.gameObject.SetActive(false);
+        PlayerPlane.SetActive(false);
+    }
+
+    public void PlayStart()
+    {
+        transform.gameObject.SetActive(true);
+        StartCoroutine(waitGameStart());
+    }
+    IEnumerator waitGameStart()
+    {
+        HomePanel.SetActive(false);
+        PlayerPlane.SetActive(true);
+        yield return new WaitForSeconds(0.5f);
+        PlayerPlane.GetComponent<Planemove>().StartGame();
     }
 }

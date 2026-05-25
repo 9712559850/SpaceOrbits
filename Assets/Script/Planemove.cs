@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,6 +8,7 @@ public class Planemove : MonoBehaviour
 {
     [Header("Collectible")]
     [SerializeField] private List<Sprite> CollectibleSprite = new List<Sprite>();
+    [SerializeField] private List<Sprite> FireSprite = new List<Sprite>();
 
     [Header("GamePlay")]
     [SerializeField] private GameObject FireballObj;
@@ -38,7 +40,7 @@ public class Planemove : MonoBehaviour
 
     int completeNumber = 0;
 
-    public void Start()
+    public void StartGame()
     {
         boxCollider = GetComponent<BoxCollider2D>();
         UIManager.Instance.ShowBestScore(PlayerPrefs.GetInt("BestScore"));
@@ -50,6 +52,11 @@ public class Planemove : MonoBehaviour
         UIManager.Instance.UpdateLevel(levelNumber);
         UpdateSpeedByLevel();
         CollectibleInit();
+    }
+    void OnDisable()
+    {
+        transform.position = startpositionPlane;
+        transform.rotation = Quaternion.Euler(0, 0, 0);
     }
 
     #region
@@ -65,7 +72,12 @@ public class Planemove : MonoBehaviour
     {
         yield return new WaitForSeconds(1.0f);
         int randomvalue;
-        randomvalue = Random.Range(0, 10);
+        randomvalue = Random.Range(0, CollectibleSprite.Count);
+
+        int randomvaluefire;
+        randomvaluefire = Random.Range(0, FireSprite.Count);
+        FireballObj.GetComponent<Image>().sprite = FireSprite[randomvaluefire];
+
         for (int i = 0; i < RoundCircle.childCount - 1; i++)
         {
             RoundCircle.GetChild(i).GetComponent<Image>().sprite = CollectibleSprite[randomvalue];
@@ -74,7 +86,6 @@ public class Planemove : MonoBehaviour
         }
         CenterTop.gameObject.SetActive(true);
         UIManager.Instance.startButton.gameObject.SetActive(true);
-        UIManager.Instance.shopPanel.SetActive(true);
         UpdateSpeedByLevel();
     }
     #endregion
@@ -142,18 +153,20 @@ public class Planemove : MonoBehaviour
             score++;
             completeNumber++;
             UIManager.Instance.UpdateScore(score);
+            SoundManager.Instance.PlayCollectSound();
             col.gameObject.SetActive(false);
         }
 
         if (col.CompareTag("ball"))
         {
+            SoundManager.Instance.PlayPlaneHitSound();
             boxCollider.enabled = false; // Disable collider to prevent further triggers
             isGamestart = false;
             Destroy(col.gameObject);
             Invoke("GameoverResetdata", 1);
             CancelInvoke("Fireball");
         }
-        if (completeNumber == 28)
+        if (completeNumber == 14)
         {
             boxCollider.enabled = false; // Disable collider to prevent further triggers
             isGamestart = false;
@@ -165,7 +178,7 @@ public class Planemove : MonoBehaviour
 
     void GameoverResetdata()
     {
-        if (completeNumber >= 28)
+        if (completeNumber >= 14)
             isNext = true;
         else
             isNext = false;
